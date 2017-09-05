@@ -1,7 +1,9 @@
 #include "CurieIMU.h"
 #include <CurieBLE.h>
 
-const unsigned char  KeyboardReportDescriptor[76] = {
+int pushbotton = A0;
+
+const unsigned char  KeyboardReportDescriptor[76] = { //CONFIGURAR EL 101 COMO DISPOSITIVO PERIFERICO
   0x05, 0x01,                         // Usage Page (Generic Desktop)
   0x09, 0x06,                         // Usage (Keyboard)
   0xA1, 0x01,                         // Collection (Application)
@@ -47,7 +49,8 @@ const unsigned char  KeyboardReportDescriptor[76] = {
 
   0xC0                                // End Collection (Application)
 };
-const unsigned char KeyboardReportNone[8] = {0,0,0,0,0,0,0,0};
+
+const unsigned char KeyboardReportNone[8] = {0, 0, 0, 0, 0, 0, 0, 0}; //
 const unsigned char KeyboardReport[8] = {
   0,  //modifier
   0,  //reserved
@@ -58,7 +61,7 @@ const unsigned char KeyboardReport[8] = {
   0,  //Key6
   0   //Key7
 };
-const unsigned char HIDInfo[4]={
+const unsigned char HIDInfo[4] = {
   0x11,
   0x01,
   0x00,
@@ -70,30 +73,21 @@ BLEService mouse101("1812"); // 0x1812 = Human Interface Device
 
 //BLEUnsignedCharCharacteristic BootMouseInputReport("2A33", BLERead | BLEWrite | BLENotify);//Write Optional
 
-BLECharacteristic HIDInformation("2A4A", BLERead,4);
+BLECharacteristic HIDInformation("2A4A", BLERead, 4);
 BLEUnsignedCharCharacteristic HIDControlPoint("2A4C", BLEWriteWithoutResponse);
 BLEUnsignedCharCharacteristic ProtocolMode("2A4E", BLERead | BLEWriteWithoutResponse);
-BLECharacteristic ReportMap("2A4B", BLERead,76);
+BLECharacteristic ReportMap("2A4B", BLERead, 76);
 // Here need report HID descriptor!
-BLECharacteristic Report("2A4D", BLERead | BLENotify,8);
+BLECharacteristic Report("2A4D", BLERead | BLENotify, 8);
 BLEUnsignedCharCharacteristic ReportOutput("2A4D", BLERead | BLENotify | BLEWrite | BLEWriteWithoutResponse);
 
-BLECharacteristic BootKeyboardInputReport("2A22", BLERead | BLENotify,8);//Write Optional
+BLECharacteristic BootKeyboardInputReport("2A22", BLERead | BLENotify, 8); //Write Optional
 BLEUnsignedCharCharacteristic BootKeyboardOutputReport("2A32", BLERead | BLEWrite | BLENotify);
 
-
-const int ledPin = LED_BUILTIN; // pin to use for the LED
-unsigned long previousMillis = 0;
-const long interval = 500;
-bool Keydown=false;
 void setup() {
-  Serial.begin(9600);
+  pinMode(A0, INPUT_PULLUP); //Resistencia interna, cambia la logica del botton, false..
 
-  // set LED pin to output mode
-  pinMode(ledPin, OUTPUT);
-
-  // set advertised local name and service UUID:
-  blePeripheral.setLocalName("Genuino101 as keyboard");
+  blePeripheral.setLocalName("Genuino101"); // set advertised local name and service UUID:
   blePeripheral.setAdvertisedServiceUuid(mouse101.uuid());
 
   // add service and characteristic:
@@ -109,23 +103,19 @@ void setup() {
   blePeripheral.addAttribute(BootKeyboardInputReport);
   blePeripheral.addAttribute(BootKeyboardOutputReport);
 
-
-
   // set the initial value for the characeristic:
   ProtocolMode.setValue(1);
   //Report.setValue(0);
   ReportOutput.setValue(0);
-  ReportMap.setValue(KeyboardReportDescriptor,76);
-  BootKeyboardInputReport.setValue(KeyboardReportNone,8);
+  ReportMap.setValue(KeyboardReportDescriptor, 76);
+  BootKeyboardInputReport.setValue(KeyboardReportNone, 8);
   BootKeyboardOutputReport.setValue(0);
-//.  BootMouseInputReport.setValue(0);
-  HIDInformation.setValue(HIDInfo,4);
+  //.  BootMouseInputReport.setValue(0);
+  HIDInformation.setValue(HIDInfo, 4);
   //HIDControlPoint.setValue(0);
 
   // begin advertising BLE service:
   blePeripheral.begin();
-
-  Serial.println("BLE LED Peripheral");
 }
 
 void loop() {
@@ -138,29 +128,18 @@ void loop() {
     // print the central's MAC address:
     Serial.println(central.address());
 
-    // while the central is still connected to peripheral:
-    while (central.connected()) {
-      //delay(1000);
-      //Serial.println("Send Key:a");
-      unsigned long currentMillis = millis();
-      if (currentMillis - previousMillis >= interval) {
-        // save the last time you blinked the LED
-        previousMillis = currentMillis;
-        if(Keydown==true){
-          Serial.println("Send Key none");
-          Report.setValue(KeyboardReportNone,8);
-          Keydown=false;
-        }else{
-          Serial.println("Send Key:a");
-          Report.setValue(KeyboardReport,8);
-          Keydown=true;
-        }
+    if (digitalRead (A0) == false) {
+      Serial.println("Send Key:a");
+      Report.setValue(KeyboardReport, 8);
+      delay(25);
 
-      }
+      while (digitalRead (A0) == false);
+      Serial.println("Send Key none");
+      Report.setValue(KeyboardReportNone, 8);
     }
 
     // when the central disconnects, print it out:
-    Serial.print(F("Disconnected from central: "));
+    Serial.print(F("Disconnected from central: ")); //Almacene en la flash y no en la memoria RAM
     Serial.println(central.address());
   }
 }
